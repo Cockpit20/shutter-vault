@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import './App.css';
 import Post from './Components/Post';
 import { auth, db } from './firebaseConfig'; // Adjust the path as necessary
-import { collection, onSnapshot } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
 import { Input, Button, Modal } from '@mui/material';
 import { onAuthStateChanged, updateProfile, createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth"
 import ImageUpload from './Components/ImageUpload';
@@ -42,14 +42,15 @@ function App() {
     });
 
     return () => unSubscribe();
-  }, [username]);
+  }, [username, openSignIn]);
 
   useEffect(() => {
     // Reference to the 'posts' collection
     const postsCollection = collection(db, 'posts');
 
+    const postsQuery = query(postsCollection, orderBy('timestamp', 'desc'));
     // Real-time listener for the 'posts' collection
-    const unsubscribe = onSnapshot(postsCollection, (snapshot) => {
+    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
       setPosts(snapshot.docs.map(doc => ({
         id: doc.id,
         post: doc.data()
@@ -64,7 +65,8 @@ function App() {
     event.preventDefault();
     createUserWithEmailAndPassword(auth, email, password)
       .then((authUser) => {
-        updateProfile(authUser, {
+        const user = authUser.user;
+        updateProfile(user, {
           displayName: username,
         }).then(() => {
           console.log('Profile updated successfully');
@@ -72,19 +74,23 @@ function App() {
           console.error('Error updating profile', error);
         });
         // Handle successful sign-up
-        const user = authUser.user;
+        setUsername("")
+        setPassword("")
+        setEmail("")
         console.log('User signed up:', user);
       })
       .catch((error) => {
         // Handle sign-up errors
         alert(error.message);
       });
+    setOpen(false);
   }
 
   const signIn = (event) => {
     event.preventDefault();
     signInWithEmailAndPassword(auth, email, password).catch((error) => alert(error.message))
-
+    setPassword("")
+    setEmail("")
     setOpenSignIn(false);
   }
 
@@ -168,29 +174,38 @@ function App() {
           src="https://shuttervaultpro.com/wp-content/uploads/2019/06/SVP-LOGO-FINAL-1.jpg"
           alt=""
         />
+        {user ? (
+          <Button onClick={() => auth.signOut()}>Logout</Button>
+        ) : (
+          <div className='app__loginContainer'>
+            <Button onClick={() => setOpenSignIn(true)}>Sign In</Button>
+            <Button onClick={() => setOpen(true)}>Sign Up</Button>
+          </div>
+
+        )}
       </div>
 
-      {user ? (
-        <Button onClick={() => auth.signOut()}>Logout</Button>
-      ) : (
-        <div className='app__loginContainer'>
-          <Button onClick={() => setOpenSignIn(true)}>Sign In</Button>
-          <Button onClick={() => setOpen(true)}>Sign Up</Button>
+      <div className='app__posts'>
+        <div>
+          {posts.map(({ id, post }) => {
+            return <Post
+              key={id}
+              postId={id}
+              user={user}
+              username={post.username}
+              caption={post.caption}
+              imageURL={post.imageURL}
+            />
+          })}
         </div>
+      </div>
 
+
+      {user ? (
+        <ImageUpload username={user.displayName} />
+      ) : (
+        <h3>Login to Upload Photos</h3>
       )}
-
-      <ImageUpload />
-
-
-      {posts.map(({ id, post }) => {
-        return <Post
-          key={id}
-          username={post.username}
-          caption={post.caption}
-          imageURL={post.imageURL}
-        />
-      })}
     </div>
   );
 }

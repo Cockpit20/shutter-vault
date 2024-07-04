@@ -1,0 +1,9 @@
+{
+  "projects": {
+    "default": "shutter-vault-react",
+    "shutter-vault-react": "shutter-vault-react"
+  },
+  "targets": {},
+  "etags": {},
+  "dataconnectEmulatorConfig": {}
+}
